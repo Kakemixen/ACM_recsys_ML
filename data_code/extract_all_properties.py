@@ -1,6 +1,6 @@
 import pandas as pd
 
-metadata_path = "./data/item_metadata.csv"
+metadata_path = "../data/item_metadata.csv"
 
 metadata = pd.read_csv(metadata_path)
 
@@ -15,5 +15,5 @@ for index, item in metadata.iterrows():
             all_properties[x] += 1
 
 df = pd.DataFrame([all_properties.keys(),all_properties.values()]).transpose()
-df.to_csv("./data/all_properties.csv", index=False)
+df.to_csv("../data/all_properties.csv", index=False)
 
