@@ -1,59 +1,74 @@
+from pathlib import Path
 import numpy as np
 import pandas as pd
 
-path_meta = "../data/all_properties.csv"
+path_processed_meta = "../data/all_properties.csv"
 path_session = "../data/train.csv"
 path_item = "../data/item_metadata.csv"
 
 to_path_item = "../data/FM_item_vectors.csv"
 to_path_session = "../data/FM_session_vectors.csv"
 
-
+## gets the metadata vector described in path
+# @ param
+#   path: the path of processed metadata file | string
+# @ return
+#  the metadata vector | np.array([])
 def get_metadata_vector(path):
-    if path == None:
-        #TODO import and use extract_all_properties.py
-        print("need metadata")
-        print("extracting")
-        import extract_all_properties
-        print("done extracting, run program again")
-        return
+    if not Path(path).is_file():
+        print("need to process metadata")
+        import extract_all_properties as exprop
+        exprop.extract_all_properties(path_item, path)
+        print("done processing metadata")
 
     df = pd.read_csv(path)
-    return df["0"]
+    return np.array(df["0"])
 
-def process_item_data(path, to_path, processed_metadata_path=None):
-    one_hot_attributes = np.concatenate((np.array(["item"]), get_metadata_vector(processed_metadata_path)), axis=0) # one hot encoding header list
+## processes item data to be used in the FM
+# @ param
+#   path: the path of processed metadata file | string
+#   to_path: the path tostore file in | string
+#   processed_metadata_path: the file storing the file with the metadata attributes (from extract_all_properties.py)| string
+# @ return
+#   None
+def process_item_data(path, to_path, processed_metadata_path):
+    print("This will take some time. Progress(will still keep up to last batch if stopped early):")
+
+    one_hot_attributes = get_metadata_vector(processed_metadata_path) # one hot encoding header list
     n_attr = len(one_hot_attributes)
 
-    empty_item = np.array([[0 for _ in range(len(one_hot_attributes))]]) #so that it may be added to other np.array([[]])
+    empty_item = np.array([[0 for _ in range(len(one_hot_attributes))]]) # baseline used to start a new item
 
+    # wiriting the header to file
     df = pd.DataFrame([], columns=one_hot_attributes)
     df.to_csv(to_path, mode="w+", header=True)
 
     for chunk in pd.read_csv(path, chunksize=512): # split up into chunks cus memory error
-        first_in_chunk=True
-        # encoded_items=np.array(empty_item) # because we need this apparently
+        first_in_chunk=True # flag to use for creating a new chunk matrix
         indexes = np.array([], dtype=np.int64)
+
+        # encodes item as one-hot of attributes
         for index, item in chunk.iterrows():
             encoded_item = empty_item.copy()
-            encoded_item[0][0] = item["item_id"]
-            for i in range(1, n_attr): # to not count item ID
-                for item_attribute in item["properties"].split("|"):
+            for item_attribute in item["properties"].split("|"):
+                for i in range(n_attr):
                     if(item_attribute == one_hot_attributes[i]):
                         encoded_item[0][i] = 1
+
+            # storing calculated encoded_item in a matrix | np.array([[]])
             if first_in_chunk:
                 encoded_items = np.array(encoded_item) #start the list
                 first_in_chunk = False
             else:
                 encoded_items = np.append(encoded_items,encoded_item,0)
-            print(index)
-            indexes = np.append(indexes, int(index)) #TODO change to item ID's
+            indexes = np.append(indexes, int(item["item_id"]))
+            print("i:{:<7} t:{}   ".format(index, 927143), end="\r")
+
+        #writing the data as processed under the header already written
         df = pd.DataFrame(encoded_items, columns=one_hot_attributes, index=indexes)
         df.to_csv(to_path, mode='a', header=False)
-        if(index > 1000): break #TODO remove to transofrm entire csv
-
-process_item_data(path_item, to_path_item, path_meta)
-
+    print("\nDone!")
+    print("File can be found at: {}".format(to_path))
 
 
 
@@ -63,3 +78,7 @@ def process_session_data():
             pass
     df = pd.DataFrame(list(possibilities)).transpose()
     df.to_csv(to_path, mode='a+', header=False)
+
+if __name__ == "__main__":
+    process_item_data(path_item, to_path_item, path_processed_meta)
+
