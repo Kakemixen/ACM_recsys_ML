@@ -143,7 +143,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
     """
     print("This will take some time. Progress(will still keep up to last batch if stopped early):")
 
-    memory = dict{} # to store items interacted with in a session
+    memory = dict() # to store items interacted with in a session
     item_attributes = get_metadata_vector(item_meta_path)
 
     non_item_attributes = np.append(
@@ -153,7 +153,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
                     get_device_attr() #begins index 5
             )) #total elm 8
     attributes = np.append(item_attributes, non_item_attributes)
-    print(attributes)
+    # print(attributes)
     n_attr = len(attributes)
     empty_session_item = np.array([0 for _ in range(len(item_attributes))]) # baseline used to start a new session
     empty_session_non_item = np.array([0 for _ in range(len(non_item_attributes))]) # baseline used to start a new session
@@ -165,7 +165,8 @@ def process_session_data(path, to_path, item_path, item_meta_path):
     # we need to make sure sessions spanning multiple chunks are preserved
     # last_session=(0,0) # basic start
     row1 = pd.read_csv(path, nrows=1)
-    last_session = (row1["user_id"], row1["session_id"]) # more sophisticated start, to avoid storing initial state when iteration starts
+    last_session = (row1.loc[0,"user_id"], row1.loc[0,"session_id"]) # more sophisticated start, to avoid storing initial state when iteration starts
+    print(last_session[1])
 
     # to extend scope of variables between batches
     encoded_session_item = empty_session_item.copy()
@@ -180,6 +181,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
 
         # encodes item as one-hot of attributes
         for index, item in chunk.iterrows():
+            print(index)
             # check if start new session, which means save last session
             if not item["session_id"] == last_session[1]:
                 # storing last calculated encoded_item in a matrix | np.array([[]])
@@ -200,37 +202,39 @@ def process_session_data(path, to_path, item_path, item_meta_path):
                 encoded_session_item = empty_session_item.copy()
                 encoded_session_non_item = empty_session_non_item.copy()
                 encoded_session_non_item += np.append(np.array([0,0,0,0,0]),get_device(item["device"])) #not dependent on actions, update device now
-                memory = dict{} #TODO find better forget rule for memory
+                memory = dict() #TODO find better forget rule for memory
 
             # update encoded session by info in this step
             action = item["action_type"]
             encoded_session_non_item[0] += 1 #update step
-            if action = "interaction item image": # Item ID
+            if action == "interaction item image": # Item ID
                 last_interactions += 1
                 item_vector, memory = get_item_vector(item["reference"], memory, item_path)
                 encoded_session_item += item_vector
-            elif action = "interaction item rating": # Item ID
+            elif action == "interaction item rating": # Item ID
                 last_interactions += 1
                 item_vector, memory = get_item_vector(item["reference"], memory, item_path)
                 encoded_session_item += item_vector
-            elif action = "interaction item info": # Item ID
+            elif action == "interaction item info": # Item ID
                 last_interactions += 1
                 item_vector, memory = get_item_vector(item["reference"], memory, item_path)
                 encoded_session_item += item_vector
-            elif action = "interaction item deals": # Item ID
+            elif action == "interaction item deals": # Item ID
                 last_interactions += 1
                 item_vector, memory = get_item_vector(item["reference"], memory, item_path)
                 encoded_session_item += item_vector
-            elif action = "search for item": # Item ID
+            elif action == "search for item": # Item ID
                 last_interactions += 1
                 item_vector, memory = get_item_vector(item["reference"], memory, item_path)
                 encoded_session_item += item_vector
-            elif action = "change of sort order":
+            elif action == "change of sort order":
                 encoded_session_non_item = get_sorting_update(item["reference"], encoded_session_non_item)
-            elif action = "filter selection":
+            elif action == "filter selection":
                 encoded_session_item += get_filter_update(item["reference"])
-            elif action = "clickout item": #the special snowflake
+            elif action == "clickout item": #the special snowflake
                 pass #TODO get some item possibilities as a column
+                #TODO get a column with clickouts split by | (2|6|8)
+                #TODO get  column where possibilities are split by , per clickout split by | (1,2,3|2,6,1|7,8,9)
             else:
                 # guess we done here
                 pass
@@ -238,7 +242,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
             print("i:{:<7} t:{}   ".format(index, "large number"), end="\r")
 
         #writing the data as processed under the header already written
-        df = pd.DataFrame(encoded_sessions, columns=np,append(np.array(["person_id", "session_id"]),attributes), index=indexes)
+        df = pd.DataFrame(encoded_sessions, columns=np.append(np.array(["person_id", "session_id"]),attributes), index=indexes)
         df.to_csv(to_path, mode='a', header=False)
 
         break #TODO remove
