@@ -66,10 +66,7 @@ def process_item_data(path, to_path, processed_metadata_path):
 
 
 def get_device_attr():
-    return np.array(["mobile",
-        "desktop",
-        "tablet"
-    ])
+    return np.array(["mobile","desktop","tablet"])
 
 def get_device(device):
     if(device == "mobile"):
@@ -84,30 +81,28 @@ def get_item_vector(item_id, memory, item_path):
         return memory[item_id]
     # not in memory, find from file
     for chunk in pd.read_csv(item_path, chunksize=512):
-        if item_id in chunk.index.values:
+        if item_id in chunk.index.values: #TODO might not work
             item_vector = chunk.loc[item_id]
             memory[item_id] = item_vector
             return item_vector, memory
 
 
-def get_filter_update(filter_ref, meta_path):
-    meta = get_metadata_vector(meta_path)
-    basic = np.array([0 for _ in range(len(meta))])
-    for i in range(len(meta)):
+# return the vector for updating the item vector by applying a filter, al elm in the attributes
+def get_filter_update(filter_ref, attr):
+    basic = np.array([0 for _ in range(len(attr))])
+    for i in range(len(attr)):
         if filter_ref == meta[i]:
-            basic[i] = 10 # orsomething TODO find a way to let algorithm now what was filteredal
+            # weigh the filter higly (higher than interacted item)
+            basic[i] = 10 # orsomething TODO find a way to let algorithm now what was filtered, could be done by capping
             return basic
     return basic
 
+# return the sorting oprtions as np.array([])
 def get_sorting_attr():
-    return np.array(["price only",
-        "rating only",
-        "distance only",
-        "our recommendations"
-        # "price and recommended",      | can be used by vectors like (0,1,0,1)
+    return np.array(["price only","rating only","distance only","our recommendations"])
+    # "price and recommended",      | can be used by vectors like (0,1,0,1)
         # "distance and recommended",
         # "rating and recommended"
-        ])
 
 def get_sorting_update(sorting, encoded):
     if sorting == "price only":
@@ -209,23 +204,23 @@ def process_session_data(path, to_path, item_path, item_meta_path):
             encoded_session_non_item[0] += 1 #update step
             if action == "interaction item image": # Item ID
                 last_interactions += 1
-                item_vector, memory = get_item_vector(item["reference"], memory, item_path)
+                item_vector, memory = get_item_vector(item["reference"], memory, item_attributes)
                 encoded_session_item += item_vector
             elif action == "interaction item rating": # Item ID
                 last_interactions += 1
-                item_vector, memory = get_item_vector(item["reference"], memory, item_path)
+                item_vector, memory = get_item_vector(item["reference"], memory, item_attributes)
                 encoded_session_item += item_vector
             elif action == "interaction item info": # Item ID
                 last_interactions += 1
-                item_vector, memory = get_item_vector(item["reference"], memory, item_path)
+                item_vector, memory = get_item_vector(item["reference"], memory, item_attributes)
                 encoded_session_item += item_vector
             elif action == "interaction item deals": # Item ID
                 last_interactions += 1
-                item_vector, memory = get_item_vector(item["reference"], memory, item_path)
+                item_vector, memory = get_item_vector(item["reference"], memory, item_attributes)
                 encoded_session_item += item_vector
             elif action == "search for item": # Item ID
                 last_interactions += 1
-                item_vector, memory = get_item_vector(item["reference"], memory, item_path)
+                item_vector, memory = get_item_vector(item["reference"], memory, item_attributes)
                 encoded_session_item += item_vector
             elif action == "change of sort order":
                 encoded_session_non_item = get_sorting_update(item["reference"], encoded_session_non_item)
