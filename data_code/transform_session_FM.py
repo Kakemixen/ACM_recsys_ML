@@ -1,3 +1,4 @@
+from time import time
 from sys import exit
 from pathlib import Path
 import numpy as np
@@ -45,21 +46,14 @@ def get_sorting_update(sorting):
     else:
         return np.array([0,0,0,0])
 
-def get_item_vector(item_id, memory, item_path):
+encoded_items = pd.read_csv("../data/FM_item_vectors.csv",index_col=0)
+
+def get_item_vector(item_id, item_path):
     item_id = int(item_id)
-    if item_id in memory.keys():
-        # print("found old item")
-        return (memory[item_id], memory)
-    # not in memory, find from file
-    for chunk in pd.read_csv(item_path, chunksize=200000, index_col=0):
-        if item_id in set(chunk.index.values):
-            item_vector = np.array(chunk.loc[item_id])
-            memory[item_id] = item_vector
-            # print("found new item")
-            return (item_vector, memory)
-    # print("not existing")
-    memory[item_id] = np.array([])
-    return (np.array([]), memory) # pls not happen
+    if item_id in set(encoded_items.index.values):
+        item_vector = np.array(encoded_items.loc[item_id])
+        return item_vector
+    return np.array([])
 
 # return the vector for updating the item vector by applying a filter, al elm in the attributes
 def get_filter_update(filter_ref, attr):
@@ -83,40 +77,36 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_a
     sorting_vector = np.array([0,0,0,0]) #elevate scope, and initialize
 
     interactions = 0
-    memory=dict()
     valid_session = False
     for i, session_row in session.iterrows():
         # update encoded session by info in this row / step
         action = session_row["action_type"]
         if action == "interaction item image": # Item ID
             interactions += 1
-            # stuff = get_item_vector(session_row["reference"], memory, item_path)
-            # print(stuff)
-            # exit()
-            item_vector, memory = get_item_vector(session_row["reference"], memory, item_path)
+            item_vector = get_item_vector(session_row["reference"], item_path)
             if len(item_vector) > 0:
                 encoded_session_item += item_vector
         elif action == "interaction item rating": # Item ID
             interactions += 1
-            item_vector, memory = get_item_vector(session_row["reference"], memory, item_path)
+            item_vector = get_item_vector(session_row["reference"], item_path)
             if len(item_vector) > 0:
                 encoded_session_item += item_vector
         elif action == "interaction item info": # Item ID
             interactions += 1
-            item_vector, memory = get_item_vector(session_row["reference"], memory, item_path)
+            item_vector = get_item_vector(session_row["reference"], item_path)
             if len(item_vector) > 0:
                 encoded_session_item += item_vector
         elif action == "interaction item deals": # Item ID
             interactions += 1
-            item_vector, memory = get_item_vector(session_row["reference"], memory, item_path)
+            item_vector = get_item_vector(session_row["reference"], item_path)
             if len(item_vector) > 0:
                 encoded_session_item += item_vector
         elif action == "search for item": # Item ID
             interactions += 1
-            item_vector, memory = get_item_vector(session_row["reference"], memory, item_path)
+            item_vector = get_item_vector(session_row["reference"], item_path)
             if len(item_vector) > 0:
                 encoded_session_item += item_vector
-        elif action == "filter selection":
+        elif action == "filter selection": # filter choice, elm in item_attibutes
             encoded_session_item += get_filter_update(session_row["reference"], item_attributes) #TODO move to one update when finding clockout item
         elif action == "change of sort order":
             sorting_vector = get_sorting_update(session_row["reference"]) # remembering last sorting
@@ -188,6 +178,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
     last_session_ids = (row1.loc[0,"user_id"], row1.loc[0,"session_id"]) # more sophisticated start
 
     new_session=True # flag to use for creating a new chunk matrix
+    start=time()
     for chunk in pd.read_csv(path, chunksize=256): # split up into chunks cus is too damn much!
 
         for index, session_row in chunk.iterrows():
@@ -208,9 +199,10 @@ def process_session_data(path, to_path, item_path, item_meta_path):
             else:
                 session = pd.concat([session,session_row], axis=1)
 
-
+    end = time()
 
     print("\nDone!")
+    print("diraction: {}".format(end-start))
     print("File can be found at: {}".format(to_path))
 
 if __name__ == "__main__":
@@ -218,7 +210,7 @@ if __name__ == "__main__":
     path_session = "../data/train.csv"
     path_item = "../data/item_metadata.csv"
 
-    to_path_item = "../data/FM_item_vectors.csv"
+    to_path_item ="../data/FM_item_vectors.csv"
     to_path_session = "../data/FM_session_vectors.csv"
 
     process_session_data(path_session, to_path_session, to_path_item, path_processed_meta)
