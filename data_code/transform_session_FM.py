@@ -73,13 +73,9 @@ def get_filter_update(filter_ref, attr):
 
 ## encode session and append to file: to_path
 # session: pd.DataFrame
-def append_session(ids, session, to_path, index, column_names, item_path, item_meta_path):
-    print()
+def append_session(ids, session, to_path, index, column_names, item_path, item_attributes):
     # attributes | total: item, step, sort, device | don't need the attribute vecotrs
-    item_attributes = get_metadata_vector(item_meta_path)
-    # step_attributes = np.array(["step"]), # begins index 0
-    # sorting_attributes = get_sorting_attr(), #begins index 1
-    # device_attributes = get_device_attr() #begins index 5
+    # item_attributes = get_metadata_vector(item_meta_path)
 
     # init
     encoded_session_item = np.array([0 for _ in range(len(item_attributes))])
@@ -90,7 +86,7 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_m
     memory=dict()
     valid_session = False
     for i, session_row in session.iterrows():
-        # update encoded session by info in this step
+        # update encoded session by info in this row / step
         action = session_row["action_type"]
         if action == "interaction item image": # Item ID
             interactions += 1
@@ -129,13 +125,12 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_m
 
             #TODO get some item possibilities as a column
             #TODO get  column where possibilities are split by , per clickout split by | (1,2,3|2,6,1|7,8,9)
-            item_impressions = "impression list" # find them
-            item_prices = "price list" #find them
+            item_impressions = session_row["impressions"]
+            item_prices = session_row["prices"]
             #TODO get a column with clickouts split by | (2|6|8)
-            clicked_out = "item id" # find if exists
+            clicked_out = session_row["reference"]
 
-            #TODO set final sorting - from elif above. igmore for now
-            #TODO set final step
+            # set final step
             step_vector = np.array([min(session_row["step"]/20, 1)])
 
             valid_session = True
@@ -144,9 +139,9 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_m
             # guess we done here
             pass
 
-    print(valid_session, end="")
     if valid_session:
         # total: item, step, sort, device
+        # append teh different vectors to make the session vector with item\price references
         if interactions > 1:
             encoded_session_item = encoded_session_item / interactions #TODO cap at 1 maybe?
         encoded_session = np.append(encoded_session_item, step_vector)
@@ -155,10 +150,8 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_m
         encoded_session = np.append(encoded_session, [clicked_out, item_impressions, item_prices])
         encoded_session = np.append(ids, encoded_session)
         encoded_df = pd.DataFrame([encoded_session], index = [index], columns = np.append(["person_id", "session_id"],np.append(column_names,["choice", "items", "prices"])))
-        #TODO write to file
-        print(" - writing",end="")
+        # append the  encoded vector to file
         encoded_df.to_csv(to_path, mode='a', header=False)
-    print()
     # exit()
     return valid_session
 
@@ -173,7 +166,8 @@ def process_session_data(path, to_path, item_path, item_meta_path):
 
     #index fro writingo
     session_number = 0
-    # wiriting the header to file
+
+    # get header for file
     item_attributes = get_metadata_vector(item_meta_path)
     non_item_attributes = np.append(
                 np.array(["step"]), # begins index 0
@@ -194,35 +188,27 @@ def process_session_data(path, to_path, item_path, item_meta_path):
     last_session_ids = (row1.loc[0,"user_id"], row1.loc[0,"session_id"]) # more sophisticated start
 
     new_session=True # flag to use for creating a new chunk matrix
-    for chunk in pd.read_csv(path, chunksize=512): # split up into chunks
+    for chunk in pd.read_csv(path, chunksize=256): # split up into chunks cus is too damn much!
 
-        # encodes item as one-hot of attributes
-        # chunk_row=0
         for index, session_row in chunk.iterrows():
             if not session_row["session_id"] == last_session_ids[1]:
-                #TODO append last session to file from last session found
-                written = append_session(last_session_ids, session.T, to_path, session_number, attributes, item_path, item_meta_path)
+                written = append_session(last_session_ids, session.T, to_path, session_number, attributes, item_path, item_attributes)
                 if written: session_number += 1
 
-                #TODO empty found session
                 new_session = True # makes session be new np.array([])
-                #TODO set last session to this session
-                last_session_ids = (session_row["user_id"],session_row["session_id"])
-                print(last_session_ids)
 
-            #TODO find session
+                # set last session to this session
+                last_session_ids = (session_row["user_id"],session_row["session_id"])
+
 
             if new_session:
+                print("Processing session {:<6} {}".format(session_number, last_session_ids), end="\r")
                 session = pd.DataFrame(session_row)#start the DF
                 new_session = False
             else:
                 session = pd.concat([session,session_row], axis=1)
 
-            print("Porcessing session {}".format(session_number), end="\r")
-            # chunk_row += 1
 
-
-        break #TODO remove
 
     print("\nDone!")
     print("File can be found at: {}".format(to_path))
