@@ -4,6 +4,7 @@ import pandas as pd
 path = "../data/train.csv"
 
 valid_actions =  {"change of sort order" ,   "filter selection"}
+valid_attr = {"platform"}
 
 if len(argv) <= 1:
     print("have argument, among: " + str(valid_actions))
