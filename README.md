@@ -9,11 +9,17 @@ This is because the task given is to use that optimizer with some specific loss 
 ### to run
 ~ = root folder for project
 data:
+
 0 - make sure data unziped in ~/data/
+
 1 - run ~/data_code/extract_all_properties.py
+
 2 - run ~/data_code/transform_item_FM.py
+
 3 - run ~/data_code/transform_session_FM.py
+
 training:
+
 4 - train with ~/FM_code/test_placeholder.py
 
 ## RNN
