@@ -49,9 +49,6 @@ y_pred = tf.reshape(y_pred, [-1])
 
 # loss
 
-# a vector containing the differences y_pred[y_true] - y_pred
-y_diff = tf.gather(y_pred, y_true) - y_pred
-
 """
 tf.sigmoid returns 0 if x less than some number
 since log, this is bad
@@ -60,9 +57,9 @@ add epsilon?
 """
 
 # BPR = -1/25 * tf.reduce_sum(tf.log(tf.sigmoid(y_diff)), 0)
-BPR = -1/25 * tf.reduce_sum(tf.log_sigmoid(y_diff), 0)
+BPR = -1/25 * tf.reduce_sum(tf.log_sigmoid(tf.gather(y_pred, y_true) - y_pred), 0)
 
-TOP1 = 1/25 * tf.reduce_sum(tf.sigmoid(y_diff) + tf.sigmoid(tf.square(y_pred)), 0)
+TOP1 = 1/25 * tf.reduce_sum(tf.sigmoid(y_pred - tf.gather(y_pred, y_true)) + tf.sigmoid(tf.square(y_pred)), 0)
 
 optimizer = tf.train.AdagradOptimizer(0.1)
 
@@ -90,7 +87,7 @@ with tf.Session() as sess:
         sessions = 0
         for chunk in pd.read_csv(sessions_csv, chunksize=512, index_col=0):
             for index, row in chunk.iterrows():
-                print("e: {:<3} i: {:<6}|| BPR: {:<4} | TOP1: {:<4}".format(epoch, index, round(loss_BPR, 3), round(loss_TOP1, 3)), end="\r")
+                print("e: {:<3} i: {:<6}|| BPR: {:<5} | TOP1: {:<5}".format(epoch, index, str(loss_BPR)[:5], str(loss_TOP1)[:5]), end="\r")
 
                 try:
                     loss_BPR, _, loss_TOP1, _, dB, dT = sess.run(
