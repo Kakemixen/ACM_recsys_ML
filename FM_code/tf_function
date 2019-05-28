@@ -1,0 +1,132 @@
+import numpy as np
+import tensorflow as tf
+import pandas as pd
+from math import sqrt
+from math import log
+
+x_s_dim = 4
+x_i_dim = 3
+d =  2
+
+# input
+x_s = tf.placeholder(tf.float32, name='x_s', shape=[1,x_s_dim])
+x_i = tf.placeholder(tf.float32, name='x_i', shape=[25,x_i_dim])
+true_clicked_i = tf.placeholder(tf.int32, name='true_clicked_i')
+
+#parameters
+Q = tf.get_variable("Q", shape=(x_s_dim, d))
+P = tf.get_variable("P", shape=(x_i_dim, d))
+b_p = tf.get_variable("b_p", shape=(1, x_s_dim))
+b_q = tf.get_variable("b_q", shape=(1, x_i_dim))
+
+#calculation
+dot_Q = tf.matmul(x_s, Q)
+dot_P = tf.matmul(x_i, P)
+
+#dot = tf.reshape(tf.matmul(dot_Q, tf.transpose(dot_P)), [1,25])
+dot = tf.matmul(dot_Q, tf.transpose(dot_P))
+
+#w_s = tf.reduce_sum(tf.multiply(x_s, b_p))
+#w_i = tf.reduce_sum(tf.multiply(x_i, b_q))
+w_s = tf.matmul(x_s, tf.transpose(b_p))
+w_i = tf.transpose(tf.matmul(x_i, tf.transpose(b_q)))
+
+y_pred = dot + w_s + w_i
+
+#print(w_s.shape)
+#print(w_i.shape)
+#print(dot.shape)
+#print(y_pred.shape)
+
+# sigma = sigmoid
+#def sigma(x):
+    #result = tf.cond(x > 0, lambda: 1 / (1 + tf.exp(-x)), lambda: tf.exp(x) / (1 + tf.exp(x)))
+    #return result
+      
+    #if x > 0:
+     #   return 1 / (1 + tf.exp(-x))
+    #else:
+     #   return tf.exp(x) / (1 + tf.exp(x))     
+
+y1= y_pred[0,true_clicked_i] - y_pred
+
+'''
+a1 = tf.cond(y1[0,0] > 0, lambda: 1 / (1 + tf.exp(-y1[0,0])), lambda: tf.exp(y1[0,0]) / (1 + tf.exp(y1[0,0])))
+a2 = tf.cond(y1[0,1] > 0, lambda: 1 / (1 + tf.exp(-y1[0,1])), lambda: tf.exp(y1[0,1]) / (1 + tf.exp(y1[0,1])))
+a3 = tf.cond(y1[0,2] > 0, lambda: 1 / (1 + tf.exp(-y1[0,2])), lambda: tf.exp(y1[0,2]) / (1 + tf.exp(y1[0,2])))
+a4 = tf.cond(y1[0,3] > 0, lambda: 1 / (1 + tf.exp(-y1[0,3])), lambda: tf.exp(y1[0,3]) / (1 + tf.exp(y1[0,3])))
+a5 = tf.cond(y1[0,4] > 0, lambda: 1 / (1 + tf.exp(-y1[0,4])), lambda: tf.exp(y1[0,4]) / (1 + tf.exp(y1[0,4])))
+a6 = tf.cond(y1[0,5] > 0, lambda: 1 / (1 + tf.exp(-y1[0,5])), lambda: tf.exp(y1[0,5]) / (1 + tf.exp(y1[0,5])))
+a7 = tf.cond(y1[0,6] > 0, lambda: 1 / (1 + tf.exp(-y1[0,6])), lambda: tf.exp(y1[0,6]) / (1 + tf.exp(y1[0,6])))
+a8 = tf.cond(y1[0,7] > 0, lambda: 1 / (1 + tf.exp(-y1[0,7])), lambda: tf.exp(y1[0,7]) / (1 + tf.exp(y1[0,7])))
+a9 = tf.cond(y1[0,8] > 0, lambda: 1 / (1 + tf.exp(-y1[0,8])), lambda: tf.exp(y1[0,8]) / (1 + tf.exp(y1[0,8])))
+a10 = tf.cond(y1[0,9] > 0, lambda: 1 / (1 + tf.exp(-y1[0,9])), lambda: tf.exp(y1[0,9]) / (1 + tf.exp(y1[0,9])))
+a11 = tf.cond(y1[0,10] > 0, lambda: 1 / (1 + tf.exp(-y1[0,10])), lambda: tf.exp(y1[0,10]) / (1 + tf.exp(y1[0,10])))
+a12 = tf.cond(y1[0,11] > 0, lambda: 1 / (1 + tf.exp(-y1[0,11])), lambda: tf.exp(y1[0,11]) / (1 + tf.exp(y1[0,11])))
+a13 = tf.cond(y1[0,12] > 0, lambda: 1 / (1 + tf.exp(-y1[0,12])), lambda: tf.exp(y1[0,12]) / (1 + tf.exp(y1[0,12])))
+a14 = tf.cond(y1[0,13] > 0, lambda: 1 / (1 + tf.exp(-y1[0,13])), lambda: tf.exp(y1[0,13]) / (1 + tf.exp(y1[0,13])))
+a15 = tf.cond(y1[0,14] > 0, lambda: 1 / (1 + tf.exp(-y1[0,14])), lambda: tf.exp(y1[0,14]) / (1 + tf.exp(y1[0,14])))
+a16 = tf.cond(y1[0,15] > 0, lambda: 1 / (1 + tf.exp(-y1[0,15])), lambda: tf.exp(y1[0,15]) / (1 + tf.exp(y1[0,15])))
+a17 = tf.cond(y1[0,16] > 0, lambda: 1 / (1 + tf.exp(-y1[0,16])), lambda: tf.exp(y1[0,16]) / (1 + tf.exp(y1[0,16])))
+a18 = tf.cond(y1[0,17] > 0, lambda: 1 / (1 + tf.exp(-y1[0,17])), lambda: tf.exp(y1[0,17]) / (1 + tf.exp(y1[0,17])))
+a19 = tf.cond(y1[0,18] > 0, lambda: 1 / (1 + tf.exp(-y1[0,18])), lambda: tf.exp(y1[0,18]) / (1 + tf.exp(y1[0,18])))
+a20 = tf.cond(y1[0,19] > 0, lambda: 1 / (1 + tf.exp(-y1[0,19])), lambda: tf.exp(y1[0,19]) / (1 + tf.exp(y1[0,19])))
+a21 = tf.cond(y1[0,20] > 0, lambda: 1 / (1 + tf.exp(-y1[0,20])), lambda: tf.exp(y1[0,20]) / (1 + tf.exp(y1[0,20])))
+a22 = tf.cond(y1[0,21] > 0, lambda: 1 / (1 + tf.exp(-y1[0,21])), lambda: tf.exp(y1[0,21]) / (1 + tf.exp(y1[0,21])))
+a23 = tf.cond(y1[0,22] > 0, lambda: 1 / (1 + tf.exp(-y1[0,22])), lambda: tf.exp(y1[0,22]) / (1 + tf.exp(y1[0,22])))
+a24 = tf.cond(y1[0,23] > 0, lambda: 1 / (1 + tf.exp(-y1[0,23])), lambda: tf.exp(y1[0,23]) / (1 + tf.exp(y1[0,23])))
+a25 = tf.cond(y1[0,24] > 0, lambda: 1 / (1 + tf.exp(-y1[0,24])), lambda: tf.exp(y1[0,24]) / (1 + tf.exp(y1[0,24])))
+
+a_sum = a1*a2*a3*a4*a5*a6*a7*a8*a9*a10*a11*a12*a13*a14*a15*a16*a17*a18*a19*a20*a21*a22*a23*a24*a25
+
+loss = -(1/25) * tf.log(a_sum)
+'''
+
+#result = np.zeros((1,25))
+#for i in range(25):
+    #x = y1[0,i]
+    #a = tf.cond(x > 0, lambda: 1 / (1 + tf.exp(-x)), lambda: tf.exp(x) / (1 + tf.exp(x)))
+    #result[0,i] = a
+    
+
+loss = - (1/25) * tf.reduce_sum(tf.log(tf.sigmoid(y_pred[0,true_clicked_i] - y_pred)))
+
+optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
+train = optimizer.minimize(loss)
+
+
+sess = tf.Session()
+init = tf.global_variables_initializer()
+sess.run(init)
+
+#print(sess.run(y1, feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:3}))
+# print(sess.run(huh, feed_dict={x_s: [2.0, 1, 5, 1]}))
+#print(sess.run((dot, w_s, w_i), feed_dict={x_s: [2.0, 1, 5, 1], x_i:[1,4,2]}))
+
+#y1 = sess.run((y_pred), feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:3})
+#print(y1)
+#l1 = sess.run((loss), feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:24})
+#print(l1)
+
+#x_i:np.random.standard_normal((25,3))
+
+#print(np.argmax(y1))
+#y2 = sess.run((y_pred), feed_dict={x_s: [1.0, 3, 2, 1], x_i:[1,4,2]})
+#y3 = sess.run((y_pred), feed_dict={x_s: [2.1, 1.4, 2.8, 0.2], x_i:[1.2,1.3,0.2]})
+#print(y1, y2, y3)
+curr_Q, curr_y_pred, curr_y1, curr_loss = sess.run([Q, y_pred, y1, loss], feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:3})
+
+print(curr_Q)
+print(curr_y_pred)
+print(curr_y1)
+print(curr_loss)
+
+for i in range(10000):
+    sess.run(train, feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:3})
+
+curr_Q, curr_y_pred, curr_y1, curr_loss = sess.run([Q, y_pred, y1, loss], feed_dict={x_s: np.reshape([2.0, 1, 5, 1],[1,4]), x_i:np.arange(75).reshape(25,3), true_clicked_i:3})
+
+print(curr_Q)
+print(curr_y_pred)
+print(curr_y1)
+print(curr_loss)
