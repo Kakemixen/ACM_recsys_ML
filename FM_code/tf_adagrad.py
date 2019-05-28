@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
 import os
 from time import time
 from sys import exit
@@ -17,7 +19,7 @@ items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
 ### define parameters
 DEBUG_DATA = False
-num_epochs = 10
+num_epochs = 3
 
 x_s_dim = 165
 x_i_dim = 157
@@ -77,8 +79,14 @@ print("reading item vectors")
 item_vectors = pd.read_csv(items_csv, index_col=0)
 print("reading session vectors")
 session_vectors = pd.read_csv(sessions_csv, index_col=0)
+
+#consider movign in to epoch, with shuffle
 train_vectors, test_vectors = train_test_split(session_vectors) #splits default 0.75 / 0.25
 
+plt_training_BPR = []
+plt_training_TOP1 = []
+plt_validation_BPR = []
+plt_validation_TOP1 = []
 
 with tf.Session() as sess:
     loss_BPR = 0
@@ -92,8 +100,6 @@ with tf.Session() as sess:
         epoch_start = time()
         training_BPR = 0
         training_TOP1 = 0
-        valid_BPR = 0
-        valid_TOP1 = 0
         print("\nstarting training")
         iter_num = 0
         for index, row in train_vectors.iterrows():
@@ -123,12 +129,16 @@ with tf.Session() as sess:
                     print("\nchoice not in impressions")
 
         epoch_end = time()
+        plt_training_BPR.append(training_BPR/iter_num)
+        plt_training_TOP1.append(training_TOP1/iter_num)
         print("\nAverage loss in epoch:")
         print("epoch duration: {}".format(epoch_end-epoch_start))
-        print("BPR:  {}".format(training_BPR/iter_num))
-        print("TOP1: {}".format(training_TOP1/iter_num))
+        print("BPR:  {}".format(plt_training_BPR[epoch]))
+        print("TOP1: {}".format(plt_training_TOP1[epoch]))
 
         print("starting validating")
+        valid_BPR = 0
+        valid_TOP1 = 0
         iter_num = 0
         test_start = time()
         for index, row in test_vectors.iterrows():
@@ -154,10 +164,20 @@ with tf.Session() as sess:
                 if(DEBUG_DATA):
                     print("\nchoice not in impressions")
         test_end = time()
+        plt_training_BPR.append(valid_BPR/iter_num)
+        plt_training_TOP1.append(valid_TOP1/iter_num)
         print("\nAverage loss in epoch:")
         print("validation duration: {}".format(test_end - test_start))
-        print("BPR:  {}".format(valid_BPR/iter_num))
-        print("TOP1: {}".format(valid_TOP1/iter_num))
+        print("BPR:  {}".format(plt_validation_BPR[epoch]))
+        print("TOP1: {}".format(plt_validation_TOP1[epoch]))
 
     print("training duration: {}".format(epoch_end - train_start))
+
+    #plotting
+    plt.plot(np.arange(num_epochs), plt_training_BPR, 'r-', #label="training BPR",
+            np.arange(num_epochs), plt_training_TOP1, 'b-', #label="training TOP1",
+            np.arange(num_epochs), plt_validation_BPR, 'r--', #label="validation BPR",
+            np.arange(num_epochs), plt_validation_TOP1, 'b--')#, label="validation TOP1")
+    plt.show()
+
 

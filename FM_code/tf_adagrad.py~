@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from sklearn.model_selection import train_test_split
 import os
 from time import time
 from sys import exit
@@ -69,13 +70,20 @@ train_TOP1 = optimizer.minimize(TOP1)
 debug_BPR = tf.is_nan(BPR)
 debug_TOP1 = tf.is_nan(TOP1)
 
+
+
+# read the things
+print("reading item vectors")
+item_vectors = pd.read_csv(items_csv, index_col=0)
+session_vectors = pd.read_csv(sessions_csv, index_col=0)
+train_vectors, test_vectors = train_test_split(session_vectors) #splits default 0.75 / 0.25
+
+
 with tf.Session() as sess:
     loss_BPR = 0
     loss_TOP1 = 0
     print()
     sess.run(tf.global_variables_initializer())
-    print("reading item vectors")
-    item_vectors = pd.read_csv(items_csv, index_col=0)
     # x_i_dim = len(item_vectors.iloc[0].values)
     # x_s_dim = x_i_dim + 8
     print("starting training")
@@ -85,36 +93,35 @@ with tf.Session() as sess:
         total_BPR = 0
         total_TOP1 = 0
         sessions = 0
-        for chunk in pd.read_csv(sessions_csv, chunksize=512, index_col=0):
-            for index, row in chunk.iterrows():
-                print("e: {:<3} i: {:<6}|| BPR: {:<5} | TOP1: {:<5}".format(epoch, index, str(loss_BPR)[:5], str(loss_TOP1)[:5]), end="\r")
+        for index, row in train_vectors.iterrows():
+            print("e: {:<3} i: {:<6}|| BPR: {:<5} | TOP1: {:<5}".format(epoch, index, str(loss_BPR)[:5], str(loss_TOP1)[:5]), end="\r")
 
-                try:
-                    loss_BPR, _, loss_TOP1, _, dB, dT = sess.run(
-                        (
-                            BPR, train_BPR,
-                            TOP1, train_TOP1,
-                            debug_BPR, debug_TOP1
-                            ),
-                        feed_dict={
-                            x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
-                            y_true: row["items"].split("|").index(str(row["choice"])),
-                            X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
-                            })
+            try:
+                loss_BPR, _, loss_TOP1, _, dB, dT = sess.run(
+                    (
+                        BPR, train_BPR,
+                        TOP1, train_TOP1,
+                        debug_BPR, debug_TOP1
+                        ),
+                    feed_dict={
+                        x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
+                        y_true: row["items"].split("|").index(str(row["choice"])),
+                        X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
+                        })
 
-                    total_BPR += loss_BPR
-                    total_TOP1 += loss_TOP1
-                    sessions += 1
+                total_BPR += loss_BPR
+                total_TOP1 += loss_TOP1
+                sessions += 1
 
-                except KeyError:
-                    if(DEBUG_DATA):
-                        print("\nitem impressions without metadata")
-                except ValueError:
-                    if(DEBUG_DATA):
-                        print("\nchoice not in impressions")
+            except KeyError:
+                if(DEBUG_DATA):
+                    print("\nitem impressions without metadata")
+            except ValueError:
+                if(DEBUG_DATA):
+                    print("\nchoice not in impressions")
 
-                if dB or dT:
-                    exit()
+            if dB or dT:
+                exit()
 
         epoch_end = time()
         print("\nAverage loss in epoch:")
