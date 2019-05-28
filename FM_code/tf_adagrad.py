@@ -1,58 +1,36 @@
 import numpy as np
+import pandas as pd
 import tensorflow as tf
+from sklearn.model_selection import train_test_split
+import os
+from time import time
+from sys import exit
 
+import headers
 
-x_s_dim = 4
-x_i_dim = 3
-d =  2
+# tf.enable_eager_execution()
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
-# data 4 sets of 3 items
-X = [[[1,2,3],
-    [2,7,2],
-    [6,1,1],],
-    [[1,2,3],
-    [2,2,5],
-    [6,1,1],],
-    [[1,2,3],
-    [2,7,2],
-    [9,1,7],],
-    [[3,2,1],
-    [2,2,5],
-    [9,1,7],]]
-# 4 sessions
-S =     [[1,2,1,3],
-        [1,7,9,5],
-        [9,2,3,1],
-        [1,4,7,9]]
+sessions_csv = dir_path + "/../data/FM_session_vectors_decent.csv"
+items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
-# True
-T = [0,0,2,1]
+### define parameters
+DEBUG_DATA = False
+num_epochs = 10
 
-# def sigmoid(x): return 1/(1+np.exp(-x))
-def sigmoid(x, derivative=False):
-    sigm = 1. / (1. + np.exp(-x))
-    if derivative:
-        return sigm * (1. - sigm)
-    return sigm
+x_s_dim = 165
+x_i_dim = 157
 
-
-# a loss function
-def BPR(pred_scores, pos_item):
-    N_s = len(pred_scores) # number of samples
-    return (1/(N_s))*sum((np.log(sigmoid(pred_scores[pos_item] - pred_scores[j])) for j in range(N_s) if not j == pos_item))
-
-# another loss function
-def TOP1(pred_scores, pos_item):
-    N_s = len(pred_scores) # number of samples
-    return (1/(N_s))*sum(sigmoid(pred_scores[j] - pred_scores[pos_item]) + sigmoid(pred_scores[j]**2) for j in range(N_s) if not j == pos_item)
+d = 3
 
 
 # input
 x_s = tf.placeholder(tf.float32, name='x_s')
-x_i = tf.placeholder(tf.float32, name='x_i')
+X_i = tf.placeholder(tf.float32, name='X_i')
+y_true = tf.placeholder(tf.int32, name='y_t')
 
-#parameters
+# #parameters
 Q = tf.get_variable("Q", shape=(x_s_dim, d))
 P = tf.get_variable("P", shape=(x_i_dim, d))
 b_p = tf.get_variable("b_p", shape=(x_s_dim))
@@ -60,36 +38,126 @@ b_q = tf.get_variable("b_q", shape=(x_i_dim))
 
 #calculation
 dot_Q = tf.matmul(tf.expand_dims(x_s,0), Q)
-dot_P = tf.matmul(tf.expand_dims(x_i,0), P)
+dot_P = tf.matmul(X_i, P)
 
-dot = tf.reshape(tf.matmul(dot_Q, tf.transpose(dot_P)), [])
+dot = tf.matmul(dot_P, tf.transpose(dot_Q))
 
 w_s = tf.reduce_sum(tf.multiply(x_s, b_p))
-w_i = tf.reduce_sum(tf.multiply(x_i, b_q))
+w_i = tf.reduce_sum(tf.multiply(X_i, b_q))
 
 y_pred = dot + w_s + w_i
+y_pred = tf.reshape(y_pred, [-1])
 
 # loss
 
-# BPR =
+"""
+tf.sigmoid returns 0 if x less than some number
+since log, this is bad
+solution.
+add epsilon?
+"""
+
+# BPR = -1/25 * tf.reduce_sum(tf.log(tf.sigmoid(y_diff)), 0)
+BPR = -1/25 * tf.reduce_sum(tf.log_sigmoid(tf.gather(y_pred, y_true) - y_pred), 0)
+
+TOP1 = 1/25 * tf.reduce_sum(tf.sigmoid(y_pred - tf.gather(y_pred, y_true)) + tf.sigmoid(tf.square(y_pred)), 0)
+
+optimizer = tf.train.AdagradOptimizer(0.1)
+
+train_BPR = optimizer.minimize(BPR)
+train_TOP1 = optimizer.minimize(TOP1)
+
+# debug_BPR = tf.is_nan(BPR)
+# debug_TOP1 = tf.is_nan(TOP1)
 #
-# TOP1 =
-#
+
+
+# read the things
+print("reading item vectors")
+item_vectors = pd.read_csv(items_csv, index_col=0)
+print("reading session vectors")
+session_vectors = pd.read_csv(sessions_csv, index_col=0)
+train_vectors, test_vectors = train_test_split(session_vectors) #splits default 0.75 / 0.25
+
 
 with tf.Session() as sess:
+    loss_BPR = 0
+    loss_TOP1 = 0
+    print()
     sess.run(tf.global_variables_initializer())
-    # print(sess.run(huh, feed_dict={x_s: [2.0, 1, 5, 1]}))
-    for s in range(len(S)):
-        print("session: {}".format(s))
-        ratings = [0 for _ in range(len(X[s]))]
-        for i in range(len(X[s])):
-            rating = sess.run((y_pred), feed_dict={x_s: S[s], x_i:X[s][i]})
-            ratings[i] = rating
-        print(ratings)
+    # x_i_dim = len(item_vectors.iloc[0].values)
+    # x_s_dim = x_i_dim + 8
+    train_start = time()
+    for epoch in range(num_epochs):
+        epoch_start = time()
+        training_BPR = 0
+        training_TOP1 = 0
+        valid_BPR = 0
+        valid_TOP1 = 0
+        print("\nstarting training")
+        iter_num = 0
+        for index, row in train_vectors.iterrows():
+            iter_num += 1
+            print("e: {:<3} i: {:<6}|| BPR: {:<5} | TOP1: {:<5}".format(epoch, iter_num, str(loss_BPR)[:5], str(loss_TOP1)[:5]), end="\r")
 
-        print("loss")
-        print("BPR: {}".format(BPR(ratings, T[s])))
-        print("TOP1: {}".format(TOP1(ratings, T[s])))
+            try:
+                loss_BPR, _, loss_TOP1, _ = sess.run(
+                    (
+                        BPR, train_BPR,
+                        TOP1, train_TOP1
+                        ),
+                    feed_dict={
+                        x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
+                        y_true: row["items"].split("|").index(str(row["choice"])),
+                        X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
+                        })
 
+                training_BPR += loss_BPR
+                training_TOP1 += loss_TOP1
 
+            except KeyError:
+                if(DEBUG_DATA):
+                    print("\nitem impressions without metadata")
+            except ValueError:
+                if(DEBUG_DATA):
+                    print("\nchoice not in impressions")
+
+        epoch_end = time()
+        print("\nAverage loss in epoch:")
+        print("epoch duration: {}".format(epoch_end-epoch_start))
+        print("BPR:  {}".format(training_BPR/iter_num))
+        print("TOP1: {}".format(training_TOP1/iter_num))
+
+        print("starting validating")
+        iter_num = 0
+        test_start = time()
+        for index, row in test_vectors.iterrows():
+            iter_num += 1
+            print("e: {:<3} i: {:<6}".format(epoch, iter_num), end="\r")
+
+            try:
+                loss_BPR, loss_TOP1 = sess.run(
+                    (BPR,TOP1),
+                    feed_dict={
+                        x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
+                        y_true: row["items"].split("|").index(str(row["choice"])),
+                        X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
+                        })
+
+                valid_BPR += loss_BPR
+                valid_TOP1 += loss_TOP1
+
+            except KeyError:
+                if(DEBUG_DATA):
+                    print("\nitem impressions without metadata")
+            except ValueError:
+                if(DEBUG_DATA):
+                    print("\nchoice not in impressions")
+        test_end = time()
+        print("\nAverage loss in epoch:")
+        print("validation duration: {}".format(test_end - test_start))
+        print("BPR:  {}".format(valid_BPR/iter_num))
+        print("TOP1: {}".format(valid_TOP1/iter_num))
+
+    print("training duration: {}".format(epoch_end - train_start))
 
