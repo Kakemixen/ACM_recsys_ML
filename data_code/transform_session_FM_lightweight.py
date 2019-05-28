@@ -46,6 +46,8 @@ def get_sorting_update(sorting):
         return np.array([0,0,0,0])
 
 def get_item_vector(item_id, memory, item_path):
+    if item_id == "unknown":
+        return (np.array([]), memory) # pls not happen
     item_id = int(item_id)
     if item_id in memory.keys():
         # print("found old item")

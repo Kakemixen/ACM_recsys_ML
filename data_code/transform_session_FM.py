@@ -49,6 +49,8 @@ def get_sorting_update(sorting):
 encoded_items = pd.read_csv("../data/FM_item_vectors.csv",index_col=0)
 
 def get_item_vector(item_id, item_path):
+    if item_id == "unknown":
+        return np.array([])
     item_id = int(item_id)
     if item_id in set(encoded_items.index.values):
         item_vector = np.array(encoded_items.loc[item_id])
@@ -123,7 +125,7 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_a
 
             item_indexes = session_row["impressions"].split("|")
             clicked_index = session_row["reference"]
-            if not clicked_index in item_indexes: continue
+            if not clicked_index in item_indexes: continue # choice is not in options
             item_impressions = get_item_matrix(item_indexes, session_row["prices"].split("|"), item_path)
 
             clicked_out = item_indexes.index(clicked_index)
