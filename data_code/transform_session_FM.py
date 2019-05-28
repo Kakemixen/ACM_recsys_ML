@@ -55,6 +55,15 @@ def get_item_vector(item_id, item_path):
         return item_vector
     return np.array([])
 
+def get_item_matrix(item_ids, prices, item_path):
+    item_ids = [int(item_id) for item_id in item_ids]
+    item_matrix = ["None" for _ in range(len(item_ids))]
+    for i in range(len(item_ids)):
+        if item_ids[i] in set(encoded_items.index.values):
+            item_string = "".join(map(lambda x : str(x) + " ", encoded_items.loc[item_ids[i]].values))
+            item_matrix[i] = str(item_ids[i]) + " " + item_string + prices[i]
+    return "".join(map(lambda x : x + "|", item_matrix))[:-1]
+
 # return the vector for updating the item vector by applying a filter, al elm in the attributes
 def get_filter_update(filter_ref, attr):
     basic = np.array([0 for _ in range(len(attr))])
@@ -111,14 +120,13 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_a
         elif action == "change of sort order":
             sorting_vector = get_sorting_update(session_row["reference"]) # remembering last sorting
         elif action == "clickout item": #the special snowflake
-            # indexes.append(index)
 
-            #TODO get some item possibilities as a column
-            #TODO get  column where possibilities are split by , per clickout split by | (1,2,3|2,6,1|7,8,9)
-            item_impressions = session_row["impressions"]
-            item_prices = session_row["prices"]
-            #TODO get a column with clickouts split by | (2|6|8)
-            clicked_out = session_row["reference"]
+            item_indexes = session_row["impressions"].split("|")
+            clicked_index = session_row["reference"]
+            if not clicked_index in item_indexes: continue
+            item_impressions = get_item_matrix(item_indexes, session_row["prices"].split("|"), item_path)
+
+            clicked_out = item_indexes.index(clicked_index)
 
             # set final step
             step_vector = np.array([min(session_row["step"]/20, 1)])
@@ -137,9 +145,9 @@ def append_session(ids, session, to_path, index, column_names, item_path, item_a
         encoded_session = np.append(encoded_session_item, step_vector)
         encoded_session = np.append(encoded_session, sorting_vector)
         encoded_session = np.append(encoded_session, device_vector)
-        encoded_session = np.append(encoded_session, [clicked_out, item_impressions, item_prices])
+        encoded_session = np.append(encoded_session, [clicked_out, item_impressions])
         encoded_session = np.append(ids, encoded_session)
-        encoded_df = pd.DataFrame([encoded_session], index = [index], columns = np.append(["person_id", "session_id"],np.append(column_names,["choice", "items", "prices"])))
+        encoded_df = pd.DataFrame([encoded_session], index = [index], columns = np.append(["person_id", "session_id"],np.append(column_names,["choice", "items"])))
         # append the  encoded vector to file
         encoded_df.to_csv(to_path, mode='a', header=False)
     # exit()
@@ -169,7 +177,7 @@ def process_session_data(path, to_path, item_path, item_meta_path):
     n_attr = len(attributes)
 
     # wiriting the header to file
-    df = pd.DataFrame([], columns=np.append(["person_id", "session_id"],np.append(attributes,["choice", "items", "prices"])))
+    df = pd.DataFrame([], columns=np.append(["person_id", "session_id"],np.append(attributes,["choice", "items"])))
     df.to_csv(to_path, mode="w+", header=True)
 
     # we need to make sure sessions spanning multiple chunks are preserved, elevate scope
