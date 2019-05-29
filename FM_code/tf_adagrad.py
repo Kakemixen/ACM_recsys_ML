@@ -19,12 +19,13 @@ items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
 ### define parameters
 DEBUG_DATA = False
-num_epochs = 3
+num_epochs = 100
+patience = 5
 
 x_s_dim = 165
 x_i_dim = 158
 
-d = 3
+d = 20
 
 
 # input
@@ -78,8 +79,6 @@ train_TOP1 = optimizer.minimize(TOP1)
 print("reading session vectors")
 session_vectors = pd.read_csv(sessions_csv, index_col=0)
 
-#consider movign in to epoch, with shuffle
-train_vectors, test_vectors = train_test_split(session_vectors) #splits default 0.75 / 0.25
 
 plt_training_BPR = []
 plt_training_TOP1 = []
@@ -89,12 +88,19 @@ plt_validation_TOP1 = []
 with tf.Session() as sess:
     loss_BPR = 0
     loss_TOP1 = 0
+
+    # to use for early stopping
+    last_min_BPR = (100,0) # value, epoch
+    epochs_done = 0
+
     print()
     sess.run(tf.global_variables_initializer())
     # x_i_dim = len(item_vectors.iloc[0].values)
     # x_s_dim = x_i_dim + 8
     train_start = time()
     for epoch in range(num_epochs):
+        #consider movign in to epoch, with shuffle
+        train_vectors, test_vectors = train_test_split(session_vectors, shuffle=True) #splits default 0.75 / 0.25
         epoch_start = time()
         training_BPR = 0
         training_TOP1 = 0
@@ -173,15 +179,44 @@ with tf.Session() as sess:
         print("validation duration: {}".format(test_end - test_start))
         print("BPR:  {}".format(plt_validation_BPR[epoch]))
         print("TOP1: {}".format(plt_validation_TOP1[epoch]))
+        epochs_done += 1
+
+        # use BPR for early stopping
+        if plt_validation_BPR[epoch] < last_min_BPR[0]:
+            last_min_BPR = (plt_validation_BPR[epoch], epoch)
+        else:
+            if last_min_BPR[1] < epoch - patience:
+                break
+        print("last min: {}".format(last_min_BPR[1]))
+
 
     print("training duration: {}".format(epoch_end - train_start))
 
     #plotting
-    plt.plot(np.arange(num_epochs), plt_training_BPR, 'r-', #label="training BPR",
-            np.arange(num_epochs), plt_training_TOP1, 'b-', #label="training TOP1",
-            np.arange(num_epochs), plt_validation_BPR, 'r--', #label="validation BPR",
-            np.arange(num_epochs), plt_validation_TOP1, 'b--')#, label="validation TOP1")
-    plt.legend(["training BPR", "training TOP1", "validation BPR", "validation TOP1"])
+    fig, ax1 = plt.subplots()
+    x = np.arange(epochs_done)
+
+    ax1.plot(x, plt_training_BPR, "r-", label="training BPR")
+    ax1.plot(x, plt_validation_BPR, "r--", label="validation BPR")
+    ax1.set_xlabel("eopch")
+    ax1.set_ylabel("BPR", color="r")
+
+    ax2 = ax1.twinx()
+    ax2.plot(x, plt_training_TOP1, "b-", label="training TOP1")
+    ax2.plot(x, plt_validation_TOP1, "b--", label="validation TOP1")
+    ax2.set_ylabel("TOP1", color="b")
+
+    fig.tight_layout()
+    fig.legend(loc=9, ncol=4)
+
+
+    # plt.plot(np.arange(epochs_done), plt_training_BPR, 'r-',
+    #         np.arange(epochs_done), plt_training_TOP1, 'b-',
+    #         np.arange(epochs_done), plt_validation_BPR, 'r--',
+    #         np.arange(epochs_done), plt_validation_TOP1, 'b--')
+    #
+    # plt.legend(["training BPR", "training TOP1", "validation BPR", "validation TOP1"])
+    plt.savefig("./train_valid_plot.png")
     plt.show()
 
 
