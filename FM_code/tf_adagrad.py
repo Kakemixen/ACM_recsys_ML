@@ -19,7 +19,7 @@ items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
 ### define parameters
 DEBUG_DATA = False
-num_epochs = 100
+num_epochs = 10
 patience = 5
 
 x_s_dim = 165
@@ -74,6 +74,7 @@ train_TOP1 = optimizer.minimize(TOP1)
 # debug_TOP1 = tf.is_nan(TOP1)
 #
 
+saver = tf.train.Saver()
 
 # read the things
 print("reading session vectors")
@@ -191,6 +192,10 @@ with tf.Session() as sess:
 
 
     print("training duration: {}".format(epoch_end - train_start))
+
+    save_path = saver.save(sess, "/tmp/model.ckpt")
+    print("model variables saved to path: {}".format(save_path))
+
 
     #plotting
     fig, ax1 = plt.subplots()
