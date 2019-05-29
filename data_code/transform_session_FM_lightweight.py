@@ -46,6 +46,8 @@ def get_sorting_update(sorting):
         return np.array([0,0,0,0])
 
 def get_item_vector(item_id, memory, item_path):
+    if item_id == "unknown":
+        return (np.array([]), memory) # pls not happen
     item_id = int(item_id)
     if item_id in memory.keys():
         # print("found old item")
@@ -70,7 +72,7 @@ def get_item_matrix(item_ids, prices, item_path):
                 matrix_index = item_ids.index(itid)
                 item_string = "".join(map(lambda x : str(x) + " ", item.values))
                 item_matrix[matrix_index] = str(itid) + " " + item_string + prices[matrix_index]
-    return "".join(map(lambda x : x + "|", item_matrix))
+    return "".join(map(lambda x : x + "|", item_matrix))[:-1]
 
 # return the vector for updating the item vector by applying a filter, al elm in the attributes
 def get_filter_update(filter_ref, attr):
