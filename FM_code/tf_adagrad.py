@@ -14,7 +14,7 @@ import headers
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
-sessions_csv = dir_path + "/../data/FM_session_vectors_decent.csv"
+sessions_csv = dir_path + "/../data/FM_session_vectors.csv"
 items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
 ### define parameters
@@ -22,7 +22,7 @@ DEBUG_DATA = False
 num_epochs = 3
 
 x_s_dim = 165
-x_i_dim = 157
+x_i_dim = 158
 
 d = 3
 
@@ -75,8 +75,6 @@ train_TOP1 = optimizer.minimize(TOP1)
 
 
 # read the things
-print("reading item vectors")
-item_vectors = pd.read_csv(items_csv, index_col=0)
 print("reading session vectors")
 session_vectors = pd.read_csv(sessions_csv, index_col=0)
 
@@ -103,6 +101,11 @@ with tf.Session() as sess:
         print("\nstarting training")
         iter_num = 0
         for index, row in train_vectors.iterrows():
+            # print(row)
+            # print(row.drop(["choice", "items", "person_id", "session_id"]).values)
+            # print(row["choice"])
+            # print([x.split(" ")[1:] for x in row["items"].split("|")])
+            # exit()
             iter_num += 1
             print("e: {:<3} i: {:<6}|| BPR: {:<5} | TOP1: {:<5}".format(epoch, iter_num, str(loss_BPR)[:5], str(loss_TOP1)[:5]), end="\r")
 
@@ -113,9 +116,9 @@ with tf.Session() as sess:
                         TOP1, train_TOP1
                         ),
                     feed_dict={
-                        x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
-                        y_true: row["items"].split("|").index(str(row["choice"])),
-                        X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
+                        x_s:    row.drop(["choice", "items", "person_id", "session_id"]).values,
+                        y_true: row["choice"],
+                        X_i:    [x.split(" ")[1:] for x in row["items"].split("|")]
                         })
 
                 training_BPR += loss_BPR
@@ -149,9 +152,9 @@ with tf.Session() as sess:
                 loss_BPR, loss_TOP1 = sess.run(
                     (BPR,TOP1),
                     feed_dict={
-                        x_s:    row.drop(["choice", "items", "prices", "person_id", "session_id"]).values,
-                        y_true: row["items"].split("|").index(str(row["choice"])),
-                        X_i:    [item_vectors.loc[int(x)].values for x in row["items"].split("|")]
+                        x_s:    row.drop(["choice", "items", "person_id", "session_id"]).values,
+                        y_true: row["choice"],
+                        X_i:    [x.split(" ")[1:] for x in row["items"].split("|")]
                         })
 
                 valid_BPR += loss_BPR
@@ -164,8 +167,8 @@ with tf.Session() as sess:
                 if(DEBUG_DATA):
                     print("\nchoice not in impressions")
         test_end = time()
-        plt_training_BPR.append(valid_BPR/iter_num)
-        plt_training_TOP1.append(valid_TOP1/iter_num)
+        plt_validation_BPR.append(valid_BPR/iter_num)
+        plt_validation_TOP1.append(valid_TOP1/iter_num)
         print("\nAverage loss in epoch:")
         print("validation duration: {}".format(test_end - test_start))
         print("BPR:  {}".format(plt_validation_BPR[epoch]))
@@ -178,6 +181,7 @@ with tf.Session() as sess:
             np.arange(num_epochs), plt_training_TOP1, 'b-', #label="training TOP1",
             np.arange(num_epochs), plt_validation_BPR, 'r--', #label="validation BPR",
             np.arange(num_epochs), plt_validation_TOP1, 'b--')#, label="validation TOP1")
+    plt.legend(["training BPR", "training TOP1", "validation BPR", "validation TOP1"])
     plt.show()
 
 
