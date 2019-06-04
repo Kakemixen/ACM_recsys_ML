@@ -2,3 +2,5 @@ papers/*
 data/*
 2019springML_final_project.pdf
 
+*.png
+*.pyc
