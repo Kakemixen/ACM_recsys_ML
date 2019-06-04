@@ -8,22 +8,30 @@ from math import sqrt
 
 seed(211196) #Oh, such eggs of easter
 
+# user_vectors = np.loadtxt('./user_vectors.csv', delimiter=',', skiprows=1)
+user_vectors = np.array([[random() for _ in range(140)] for _ in range(200)])
+# print(user_vectors[0])
+
+
+
 ### parameters
 num_indexes = 20
 
+# defining batch size, number of epochs and learning rate
+batch_size = 30  # how many images to use together for training
+hm_epochs = 1000    # how many times to go through the entire dataset
+tot_sequences = len(user_vectors) # total number of images
 
+print(int(tot_sequences/batch_size))
 
 ## AA
-# user_vectors = np.loadtxt('./user_vectors.csv', delimiter=',', skiprows=1)
-user_vectors = np.array([[random() for _ in range(140)] for _ in range(20)])
 data_dimensions= len(user_vectors[0]) # = 158 or something
 ### layer stuffs
 ## num nodes
 #in
 nodes_input = data_dimensions
 nodes_hl_1 = 75
-nodes_hl_2 = 30
-#out
+nodes_hl_2 = 30         #out
 nodes_hl_3 = 75
 # nodes_hl_4 = 75
 nodes_output = data_dimensions
@@ -87,10 +95,6 @@ init = tf.global_variables_initializer()
 sess = tf.Session()
 sess.run(init)
 
-# defining batch size, number of epochs and learning rate
-batch_size = 100  # how many images to use together for training
-hm_epochs = 1000    # how many times to go through the entire dataset
-tot_sequences = len(user_vectors) # total number of images
 
 losses = [] # if want to plot loss
 # total improvement is printed out after each epoch
@@ -110,45 +114,51 @@ print()
 
 ### getting encoded
 
-encoded_sequences = np.array(sess.run(
+encoded_vectors = np.array(sess.run(
             layer_2,
             feed_dict={input_layer:user_vectors}
         )
     )
 
-# encoded_sequences = [ x[0] for x in encoded_sequences ] #cus appearently one have to do this
+decoded_vectors = np.array(sess.run(
+        output_layer,
+        feed_dict={input_layer:user_vectors}
+        ))
+print(decoded_vectors[0][1:5])
+print(user_vectors[0][1:5])
+
+# encoded_vectors = [ x[0] for x in encoded_vectors ] #cus appearently one have to do this
 
 ## write encoded user_vectors to some file
-df = pd.DataFrame(encoded_sequences)
+df = pd.DataFrame(encoded_vectors)
 df.to_csv("./reduced_user_vectors.csv".format(2), mode="w+", index=False)
 print("saved the encoded user_vectors to: data/encoded_sequences_K={}.csv".format(2))
 
 
 ## PCA
-# Run Principal Component analysis with PC1 & PC2
 pca = PCA(n_components=5)
 # fit the PCA
-pca.fit(encoded_sequences)
+pca.fit(encoded_vectors)
 component_vectors = pca.components_ # private variable but it's what we need
 component_scalars = pca.explained_variance_
 print("components")
-# print(component_vectors)
+# print(component_vectors[0])
 # print(component_scalars)
+
+# TODO multiply row vector by ther respective explained variance
 component_vectors = (component_vectors.T * component_scalars).T
 # print(component_vectors)
 
-# print([sqrt(sum(x**2)) for  x in component_vectors]) #checking length of component vectors
 
 decoded_components = sess.run(
             output_layer,
             feed_dict={layer_2:component_vectors}
         )
 
-print("extended components")
-decoded_components = np.array([[abs(x) for x in X] for X in decoded_components])
-print(decoded_components)
 
-# TODO multiply row vector by ther respective explained variance
+# print("extended components")
+decoded_components = np.array([[abs(x) for x in X] for X in decoded_components])
+
 # decoded_components = (decoded_components.T * component_scalars).T
 
 # TODO aggregate by making over axis=1
