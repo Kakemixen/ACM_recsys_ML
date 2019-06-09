@@ -19,8 +19,8 @@ items_csv = dir_path + "/../data/FM_item_vectors.csv"
 
 ### define parameters
 DEBUG_DATA = False
-num_epochs = 10
-patience = 5
+num_epochs = 100
+patience = 8
 
 x_s_dim = 165
 x_i_dim = 158
