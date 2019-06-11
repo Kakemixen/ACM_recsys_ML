@@ -23,3 +23,11 @@ training:
 4 - train with ~/FM_code/test_placeholder.py
 
 ## RNN
+ -- not yet implemented --
+ 
+## UV
+do steps 0-3 of FM to generate data.
+
+1 - ~/UC_code/get_user_vectors.py
+
+2 - ~/UC_code/max_user_variance_PCA.py
